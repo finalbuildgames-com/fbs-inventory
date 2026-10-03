@@ -1,6 +1,6 @@
 {
   "module": "inventory",
-  "source_commit": "cd0f7ae445d7ccad81b9d6b601d088b66ae6d061",
+  "source_commit": "7bfb013dbe03724ecf5ec74a4c6cb3a4cb37ee29",
   "source_files": [
     "src/inventory.c",
     "include/fbs/inventory.h",

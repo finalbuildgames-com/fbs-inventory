@@ -3,8 +3,8 @@
  * fbs/inventory.h — FinalBuildSystems spatial (grid) inventory. C99, engine
  * independent, no libm, no floating point.
  *
- * Model (decision: docs/decisions/inventory.md §4): a STORE owns an item-TYPE
- * catalog (footprint, stack cap, tag bits, optional container grids), a set of
+ * Model: a STORE owns an item-TYPE catalog (footprint, stack cap, tag bits,
+ * optional container grids), a set of
  * INVENTORIES each of which is an ordered list of independent rectangular
  * GRIDS, a set of ITEM instances placed at an anchor cell with one rotation
  * bit, and a set of equipment SLOTS holding one item each. One allocation,
@@ -13,9 +13,8 @@
  * outside one; abort removes registrations made inside it. Sealing, clearing
  * and the unserialized generation floor are not rolled back. Errors
  * leave outputs untouched except FBS_INV_E_TRUNCATED (required size reported).
- * Decision record: docs/decisions/inventory.md section 9. Out of scope for
- * 0.1.0 (additive later): weight/count constraints, non-rectangular
- * footprints, 180/270 rotations, replication.
+ * Out of scope for 0.1.0 (additive later): weight/count constraints,
+ * non-rectangular footprints, 180/270 rotations, replication.
  */
 #ifndef FBS_INV_H
 #define FBS_INV_H
@@ -34,7 +33,7 @@ extern "C" {
    Item handles pack a slot index in the low 16 bits and a generation in the
    high 16 bits. Accessors reject destroyed slots and generation mismatches.
    The store-wide generation counter cycles through 1..65534: sufficiently
-   old handles can alias new items after wrap (ledger C031). Handles are not
+   old handles can alias new items after wrap. Handles are not
    identities across stores or save reloads. An unserialized store-local floor
    prevents immediate reuse after abort while the serialized counter rewinds,
    but the floor also wraps. Deserialize starts it at the blob's counter. */
@@ -194,7 +193,8 @@ fbs_inv_status fbs_inv_can_place(const fbs_inv_store *s, fbs_inv_inventory inv, 
    order, then row-major (y outer, x inner) from (0,0); anchors range over
    [0, w - fw] x [0, h - fh]. try_rotate=1 tests ROT_0 at every anchor of a
    grid first, then ROT_90 over the same grid, before moving to the next grid.
-   No item state is mutated by this call (contrast Inventory.cpp:332-339). */
+   No item state is mutated by this call: it never flips an item's rotation
+   while probing. */
 fbs_inv_status fbs_inv_find_place(const fbs_inv_store *s, fbs_inv_inventory inv, fbs_inv_type t,
                                   int try_rotate, fbs_inv_item ignore,
                                   fbs_inv_grid *out_grid, uint16_t *out_x, uint16_t *out_y,
@@ -207,7 +207,7 @@ fbs_inv_status fbs_inv_list_items(const fbs_inv_store *s, fbs_inv_inventory inv,
 fbs_inv_status fbs_inv_count_of(const fbs_inv_store *s, fbs_inv_inventory inv, fbs_inv_type t,
                                 int recurse, uint64_t *out);
 /* Total stacks across the whole store, every inventory and every equipment
-   slot. The conservation witness (§6, T-4/T-5) asserts on this. */
+   slot. The conservation witnesses T-4/T-5 in the tests assert on this. */
 uint64_t       fbs_inv_total_units(const fbs_inv_store *s);
 
 /* ---- transactions --------------------------------------------------- */
@@ -264,7 +264,7 @@ fbs_inv_status fbs_inv_stack_headroom(const fbs_inv_store *s, fbs_inv_item it, u
 
 /* ---- equipment slots ------------------------------------------------ */
 /* accept_tags == 0 accepts any type; otherwise accepts iff
-   (type.tags & accept_tags) != 0 — the source's HasAny semantics.
+   (type.tags & accept_tags) != 0, i.e. any shared tag bit.
    fbs_inv_slot_add is a mutator: it requires an open transaction. */
 
 fbs_inv_status fbs_inv_slot_add(fbs_inv_store *s, const char *key, size_t key_len,

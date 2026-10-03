@@ -2,16 +2,17 @@
  * src/inventory.c — FinalBuildSystems spatial (grid) inventory. Implements
  * include/fbs/inventory.h.
  *
- * Original work. Nothing is ported, wrapped or vendored: per
- * docs/decisions/inventory.md §2.3 and §9 the owned Fab plugin ("Grid
- * Inventory", Solar Corp) is a *specification input only* — read for research,
- * no line of it ships. The model (multi-grid inventories, transposed
- * footprints, anchored placement, tag-gated equipment slots, nested container
- * items) is unprotectable design independently attested by the MIT sources
- * pinned in that decision: peter-kish/gloot @ 6b09b87ac07a8536779ef1ab0fafc7e99830f948,
+ * Original work. Nothing is ported, wrapped or vendored. The owned Fab plugin
+ * ("Grid Inventory", Solar Corp) is a *specification input only*: it carries
+ * only the Fab Standard License, so it was read for research and no line of
+ * it ships. The model (multi-grid inventories, transposed footprints, anchored
+ * placement, tag-gated equipment slots, nested container items) is
+ * unprotectable design independently attested by these MIT sources:
+ * peter-kish/gloot @ 6b09b87ac07a8536779ef1ab0fafc7e99830f948,
  * Ji-Rath/SpatialInventory @ 163077740dfaef1b34a524ccb7c856f766eeafbe and
- * imnazake/GridInventory @ c60729a3fd4739a81b63aa0b66edcfcc9f386e47. The source
- * defects I-1 .. I-15 recorded in docs/sources/inventory-inventory.md §10 are
+ * imnazake/GridInventory @ c60729a3fd4739a81b63aa0b66edcfcc9f386e47. The
+ * defects I-1 .. I-15 found in that plugin's source (for example I-1, a
+ * placement scan that counts free tiles instead of testing a rectangle) are
  * fixed structurally here, not copied.
  *
  * C99. Standard library only (no libm), no floating point, no globals, no
@@ -41,9 +42,10 @@
  * grids mirror the type's container_wh; destroying the container leaves that
  * inventory in place but DETACHED — its owner_item handle no longer resolves to
  * a live item. Inventory, grid and cell ids are therefore permanent, which is
- * what makes the blob canonical (§4.3 rule 2). A later container reuses the
- * lowest-id detached inventory whose grid shape matches its type exactly and
- * whose cells are all free; otherwise a new one is carved. Capacity is thus
+ * what makes the blob canonical (records are emitted in id order). A later
+ * container reuses the lowest-id detached inventory whose grid shape matches
+ * its type exactly and whose cells are all free; otherwise a new one is
+ * carved. Capacity is thus
  * bounded under spawn/destroy churn without ever renumbering.
  *
  * TRANSACTIONS. Every mutator appends inverse records to a fixed-size journal
@@ -55,11 +57,10 @@
  * (type_add, inventory_add, slot_add, seal) undoable too, at zero journal cost,
  * and abort restores byte-identical serialized state (witness T-7).
  *
- * SCHEMA. docs/decisions/inventory.md §4.3, magic "FBIV" version 1. That
- * section states "24 bytes" for the item record while listing 28 bytes of
- * fields; the field list is authoritative (it is the only part of the section
- * that is self-consistent, and §4.3 mandates field-by-field writing), so an
- * item record is 28 bytes. Every other record's stated size matches its fields.
+ * SCHEMA. Magic "FBIV" version 1, little-endian, every record written field
+ * by field (never a struct memcpy). An item record is 28 bytes, the sum of its
+ * fields (an early draft of the schema said 24); every other record's size is
+ * likewise the sum of its fields.
  */
 
 #include "fbs/inventory.h"
@@ -1743,7 +1744,7 @@ fbs_inv_status fbs_inv_unequip_to(fbs_inv_store *s, fbs_inv_slot sl, fbs_inv_inv
 }
 
 /* ------------------------------------------------------------------------- */
-/* Serialization (docs/decisions/inventory.md section 4.3)                   */
+/* Serialization (FBIV version 1)                                            */
 /* ------------------------------------------------------------------------- */
 
 static void inv_put_u16(unsigned char *p, unsigned v) {
@@ -2302,7 +2303,8 @@ fbs_inv_status fbs_inv_deserialize(const void *buf, size_t len, const fbs_inv_co
   }
   s->c.grid_count = b.grid_count;
 
-  /* Items, then the cells rebuilt from their anchors (§4.3 rule 3). */
+  /* Items, then the cells rebuilt from their anchors (cells are never
+     serialized). */
   for (i = 0u; i < b.item_count; ++i) {
     const unsigned char *r = inv_rec(b.items, i, INV_ITEM_BYTES);
     inv_item_rec *t = &s->items[i];

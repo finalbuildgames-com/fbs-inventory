@@ -4,16 +4,17 @@
  * Self-contained: no test framework. Exit code = number of failures (clamped
  * to 100 so it survives the 8-bit exit status; the true count is printed).
  *
- * Covers docs/decisions/inventory.md section 6: T-1 .. T-12 with the exact
- * witnesses stated there (T-2 is the I-1 counter-example the source gets
- * wrong; T-7 is byte-identical rollback), plus allocator failure, every
- * capacity exhaustion, every E_TRUNCATED path, NULL/bad-enum validation and
+ * Covers the module's test plan T-1 .. T-12 (T-2 is the I-1 counter-example
+ * the source gets wrong; T-7 is byte-identical rollback). "The source" and the
+ * defect ids I-n refer to the plugin described at the top of src/inventory.c.
+ * Also covered: allocator failure, every capacity exhaustion, every
+ * E_TRUNCATED path, NULL/bad-enum validation and
  * 0xA5 output-untouched checks on every entry point, the status-name/version
  * functions and a committed golden serialization fixture.
  *
  * It also carries the witnesses for the contract points amended after the
- * module review (docs/lanes/goap-inventory-review.md): container types must
- * have max_stack == 1 (INV-1), a handle minted inside an aborted transaction is
+ * module's independent review: container types must have max_stack == 1
+ * (INV-1), a handle minted inside an aborted transaction is
  * never reissued (INV-2), sealing is not rolled back (INV-4), fbs_inv_slot_add
  * is a mutator (INV-5), max_items tops out at 65535 (INV-9), and the 100k fuzz
  * registers container types so nesting, cycles, recursive destroy and shell
@@ -22,9 +23,8 @@
  * argument evaluation order (INV-11).
  *
  * T-12's WASM half ("run on native and WASM and assert identical blob hashes")
- * is out of scope for this C test binary: this repository builds WASM only for
- * the trace module (integrations/wasm/build-trace.sh). The native half runs
- * here in full, and the golden fixture below is the artifact a WASM build would
+ * is out of scope for this C test binary, which is native only. The native
+ * half runs here in full, and the golden fixture below is the artifact a WASM build would
  * be compared against byte for byte.
  *
  *   ./fbs_test_inventory                     compare against tests/fixtures/inventory/store.bin
@@ -347,8 +347,8 @@ static void test_t1_footprint_and_rotation(void) {
 /* ------------------------------------------------------------------------- */
 
 static void test_t2_counter_example(void) {
-  /* docs/sources/inventory-inventory.md §10, I-1: a 4x4 grid with (0,1) and
-     (2,0) occupied, asking for a 2x2. The source's tile-counting scan reports
+  /* I-1: a 4x4 grid with (0,1) and (2,0) occupied, asking for a 2x2. The
+     source's tile-counting scan reports
      the anchor (1,0) — a rectangle that contains the occupied cell (2,0) it
      never examined — and then stamps over the resident. */
   fbs_inv_store *s = make_store(NULL);
