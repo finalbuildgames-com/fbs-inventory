@@ -1,0 +1,11 @@
+{
+  "module": "inventory",
+  "source_commit": "71c93f0178003eb557290a63519bc8507538eb5b",
+  "source_files": [
+    "src/inventory.c",
+    "include/fbs/inventory.h",
+    "tests/test_inventory.c",
+    "tests/fixtures/inventory/store.bin"
+  ],
+  "history": "fresh initial commit, later squashed snapshots"
+}
