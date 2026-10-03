@@ -1,11 +1,12 @@
 {
   "module": "inventory",
-  "source_commit": "71c93f0178003eb557290a63519bc8507538eb5b",
+  "source_commit": "cd0f7ae445d7ccad81b9d6b601d088b66ae6d061",
   "source_files": [
     "src/inventory.c",
     "include/fbs/inventory.h",
     "tests/test_inventory.c",
-    "tests/fixtures/inventory/store.bin"
+    "tests/fixtures/inventory/store.bin",
+    "tools/release/readmes/inventory.md"
   ],
   "history": "fresh initial commit, later squashed snapshots"
 }
