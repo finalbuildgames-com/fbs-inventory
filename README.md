@@ -94,10 +94,14 @@ Add it as an executable with `target_link_libraries(your_app PRIVATE fbs::invent
 
 ## Build and test
 
+Run from this repository's root. In addition to CMake and the compiler named
+below, install the build tool selected by your generator (for example Make or
+Ninja).
+
 ```sh
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
-cmake --build build --parallel 2
-ctest --test-dir build --output-on-failure --no-tests=error
+cmake --build build --parallel 1
+(cd build && ctest --output-on-failure)
 ```
 
 This runs two tests. `inventory` is `tests/test_inventory.c`, which checks footprints and rotation, bounds, first-fit scan order, merge and split conservation, container cycles at any depth, recursive destroy, byte-identical rollback after abort, journal exhaustion, save/load round trips, rejection of corrupted blobs, equipment slots, one case per status code, allocator failure and NULL or bad arguments on every entry point. It also runs a 100,000-operation seeded fuzz against a reference model with a serialize/deserialize/serialize check after every operation, and compares a save against the committed golden blob `tests/fixtures/inventory/store.bin`. `inventory_example` runs `fbs_inventory_example` (`examples/basic.c`), which creates a store and prints the API version.
@@ -115,15 +119,33 @@ FetchContent_MakeAvailable(fbs_inventory)
 target_link_libraries(your_app PRIVATE fbs::inventory)
 ```
 
-`cmake --install` installs the header, the library and a targets export, but no package config file, so `find_package` is not supported.
-
 This repository ships the C library only. No engine adapters or language bindings are included.
+
+## Build modes and installation
+
+`BUILD_SHARED_LIBS=ON` builds a shared library; the default is static.
+`FBS_BUILD_TESTS` and `BUILD_TESTING` together enable the core test.
+`FBS_BUILD_EXAMPLES` controls `fbs_inventory_example`; its CTest entry also requires
+`BUILD_TESTING`. For a library-only build, set `FBS_BUILD_TESTS=OFF` and
+`FBS_BUILD_EXAMPLES=OFF`.
+
+```sh
+cmake --install build --prefix "$PWD/install"
+```
+
+Installation supplies [the public header](include/fbs/inventory.h), the library,
+license notices and `FinalBuildInventoryTargets.cmake` under
+`${CMAKE_INSTALL_LIBDIR}/cmake/FinalBuildInventory`. It supplies no package config or
+version config, so `find_package(FinalBuildInventory)` is unavailable. A consumer may
+include the installed targets file explicitly and link `fbs::inventory`, or use
+the source integration above. The [minimal program](examples/basic.c) and
+[core tests](tests/test_inventory.c) show the implemented entry points.
 
 ## Design notes
 
 - **Determinism.** No floating point, no global or static mutable state. First-fit scan order is part of the contract, and a destroyed item's slot is reused lowest index first. `tests/test_inventory.c` (`test_t8_determinism_and_round_trip`) builds the same store by two different routes and checks that the blobs are identical.
 - **Memory.** One allocation per store, sized from `fbs_inv_config`; nothing allocates after create. `fbs_inv_config_default` gives 64 types, 32 inventories, 128 grids, 8192 cells, 1024 items, 32 slots, 4096 key bytes, 256 journal entries and 64 cells per grid axis. Pass an `fbs_inv_allocator` (`alloc`, `free`, `user`) or NULL for `malloc`/`free`. `fbs_inv_store_memory` reports the block size. `test_t11_allocator` checks there is exactly one allocation.
-- **Transactions.** Each mutator writes inverse records to a fixed undo journal before it changes state, and `fbs_inv_txn_abort` replays them. Abort restores a byte-identical blob (`test_t7_rollback_is_byte_identical`). If the journal fills, the mutator returns `FBS_INV_E_FULL` and the transaction is poisoned: commit returns `FBS_INV_E_TXN` and only abort is allowed. Sealing and `fbs_inv_store_clear` are not undone by abort.
+- **Transactions.** Each mutator writes inverse records to a fixed undo journal before it changes state, and `fbs_inv_txn_abort` replays them. Abort restores a byte-identical blob (`test_t7_rollback_is_byte_identical`). If the journal fills, the mutator returns `FBS_INV_E_FULL` and the transaction is poisoned: commit returns `FBS_INV_E_TXN` and only abort is allowed. Sealing and `fbs_inv_store_clear` are not undone by abort. The store-local generation floor is also not serialized or rolled back: it prevents immediate handle reuse after abort while the serialized counter rewinds, but it still wraps.
 - **Threading.** No internal locking and no shared state between stores. Synchronize access to a single store yourself.
 - **Errors.** Statuses are negative `fbs_inv_status` values; `fbs_inv_status_name` turns one into a string. On error, outputs are left untouched, except `FBS_INV_E_TRUNCATED`, which writes the required size or count.
 - **Versioning.** `FBS_INV_VERSION` and `fbs_inv_version()` return 100 (major * 10000 + minor * 100 + patch, so 0.1.0). Blobs start with the magic `FBIV` and schema version 1; a mismatched or corrupted blob returns `FBS_INV_E_SCHEMA`. A deserialized store is sealed with no transaction open.
